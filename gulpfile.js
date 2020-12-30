@@ -9,6 +9,7 @@ const {task} = require('gulp');
 const slugify = require('slugify');
 const Jimp = require('jimp');
 const imageSize = require('image-size');
+const marked = require('marked');
 const archiver = require('archiver');
 const tar = require('tar');
 const innosetup = require('innosetup');
@@ -83,6 +84,15 @@ async function shockpkgFile(pkg) {
 	);
 }
 
+function templateStrings(str, vars) {
+	return str.replace(/\$\{([^\}]*)?\}/g, (_, p1) => {
+		if (!vars.hasOwnProperty(p1)) {
+			throw new Error(`Undefined template variable: ${p1}`);
+		}
+		return vars[p1];
+	});
+}
+
 async function readIco(iconset) {
 	const ico = new IconIco();
 	for (const data of await Promise.all([
@@ -122,15 +132,14 @@ async function readIcns(iconset) {
 }
 
 async function pngs2bmps(inDir, outDir) {
-	await Promise.all(
-		(await fse.readdir(inDir))
-			.filter(f => /^[^\.].*\.png$/i.test(f))
-			.map(f => Jimp
-				.read(`${inDir}/${f}`)
-				.then(i => i.write(
-					`${outDir}/${f}`.replace(/\.png$/i, '.bmp')
-				))
-			)
+	await Promise.all((await fse.readdir(inDir))
+		.filter(f => /^[^\.].*\.png$/i.test(f))
+		.map(f => Jimp
+			.read(`${inDir}/${f}`)
+			.then(i => i.write(
+				`${outDir}/${f}`.replace(/\.png$/i, '.bmp')
+			))
+		)
 	);
 }
 
@@ -207,6 +216,30 @@ async function readSourcesWalkthrough(each) {
 
 async function addLicense(dir) {
 	await fse.copy('LICENSE.txt', `${dir}/LICENSE.txt`);
+}
+
+async function addDocs(dir) {
+	const template = await fse.readFile('docs/template.html', 'utf8');
+	await Promise.all((await fse.readdir('docs'))
+		.filter(f => /^[^\.].*\.md$/i.test(f))
+		.map(f => fse.readFile(`docs/${f}`, 'utf8').then(src => {
+			const body = marked(src, {
+				gfm: true,
+				breaks: true,
+				smartypants: true
+			}).trim();
+			const title = (
+				body.match(/<h\d[^>]*>([\s\S]*)?<\/h\d>/) || []
+			)[1] || '';
+			return fse.writeFile(
+				`${dir}/${f}`.replace(/\.md/i, '.html'),
+				templateStrings(template, {
+					title,
+					body
+				})
+			);
+		}))
+	);
 }
 
 async function outputWalkthroughs(dir) {
@@ -424,6 +457,7 @@ async function buildBrowser(dir) {
 		`${dest}/${appName}.html`,
 		'<meta http-equiv="refresh" content="0;url=data/index.html">\n'
 	);
+	await addDocs(dest);
 	await addLicense(dest);
 }
 
@@ -432,6 +466,7 @@ async function buildWindows(dir, pkg) {
 	await fse.remove(dest);
 	await bundle(await createBundleWindows(`${dest}/${appName}.exe`), pkg);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
+	await addDocs(dest);
 	await addLicense(dest);
 }
 
@@ -440,6 +475,7 @@ async function buildMac(dir, pkg) {
 	await fse.remove(dest);
 	await bundle(await createBundleMac(`${dest}/${appName}.app`), pkg);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
+	await addDocs(dest);
 	await addLicense(dest);
 }
 
@@ -448,6 +484,7 @@ async function buildLinux32(dir, pkg) {
 	await fse.remove(dest);
 	await bundle(await createBundleLinux32(`${dest}/${appName}`), pkg);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
+	await addDocs(dest);
 	await addLicense(dest);
 }
 
@@ -456,6 +493,7 @@ async function buildLinux64(dir, pkg) {
 	await fse.remove(dest);
 	await bundle(await createBundleLinux64(`${dest}/${appName}`), pkg);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
+	await addDocs(dest);
 	await addLicense(dest);
 }
 
