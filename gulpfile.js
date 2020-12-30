@@ -437,9 +437,9 @@ async function createBundleLinux64(path) {
 	return bundle;
 }
 
-async function buildBrowser(dir) {
+async function buildBrowser(dir, nested) {
 	const dest = `build/${dir}`;
-	const destData = `${dest}/data`;
+	const destData = nested ? `${dest}/data` : dest;
 	await fse.remove(dest);
 	await readSourcesFiltered(async entry => {
 		if (/^Launcher(-full)?\.swf$/.test(entry.path)) {
@@ -453,10 +453,12 @@ async function buildBrowser(dir) {
 		`src/browser/index.html`,
 		`${destData}/index.html`
 	);
-	await fse.outputFile(
-		`${dest}/${appName}.html`,
-		'<meta http-equiv="refresh" content="0;url=data/index.html">\n'
-	);
+	if (nested) {
+		await fse.outputFile(
+			`${dest}/${appName}.html`,
+			'<meta http-equiv="refresh" content="0;url=data/index.html">\n'
+		);
+	}
 	await addDocs(dest);
 	await addLicense(dest);
 }
@@ -514,8 +516,12 @@ task('clean', async () => {
 	await fse.remove('dist');
 });
 
+task('build:pages', async () => {
+	await buildBrowser('pages', false);
+});
+
 task('build:browser', async () => {
-	await buildBrowser('browser');
+	await buildBrowser('browser', true);
 });
 
 task('build:windows', async () => {
