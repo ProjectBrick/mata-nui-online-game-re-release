@@ -232,7 +232,7 @@ async function addDocs(dir) {
 				body.match(/<h\d[^>]*>([\s\S]*)?<\/h\d>/) || []
 			)[1] || '';
 			return fse.writeFile(
-				`${dir}/${f}`.replace(/\.md/i, '.html'),
+				`${dir}/${f}`.replace(/\.md$/i, '.html'),
 				templateStrings(template, {
 					title,
 					body
