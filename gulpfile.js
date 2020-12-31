@@ -85,7 +85,7 @@ async function shockpkgFile(pkg) {
 }
 
 function templateStrings(str, vars) {
-	return str.replace(/\$\{([^\}]*)?\}/g, (_, p1) => {
+	return str.replace(/\$\{([^\}]*?)\}/g, (_, p1) => {
 		if (!vars.hasOwnProperty(p1)) {
 			throw new Error(`Undefined template variable: ${p1}`);
 		}
@@ -214,10 +214,6 @@ async function readSourcesWalkthrough(each) {
 	});
 }
 
-async function addLicense(dir) {
-	await fse.copy('LICENSE.txt', `${dir}/LICENSE.txt`);
-}
-
 async function addDocs(dir) {
 	const template = await fse.readFile('docs/template.html', 'utf8');
 	await Promise.all((await fse.readdir('docs'))
@@ -229,7 +225,7 @@ async function addDocs(dir) {
 				smartypants: true
 			}).trim();
 			const title = (
-				body.match(/<h\d[^>]*>([\s\S]*)?<\/h\d>/) || []
+				body.match(/<h\d[^>]*>([\s\S]*?)<\/h\d>/) || []
 			)[1] || '';
 			return fse.writeFile(
 				`${dir}/${f}`.replace(/\.md$/i, '.html'),
@@ -302,7 +298,7 @@ async function makeExe(target, source, id, name, file, exe) {
 		Version: version,
 		Publisher: author,
 		Copyright: copyright,
-		License: `${source}/LICENSE.txt`,
+		License: 'LICENSE.txt',
 		Icon: resIcon,
 		WizardImageHeader: `${resHeaders}/*.bmp`,
 		WizardImageSidebar: `${resSidebars}/*.bmp`,
@@ -313,9 +309,11 @@ async function makeExe(target, source, id, name, file, exe) {
 		Source: `${source}/*`,
 		ArchitecturesInstallIn64BitMode: '',
 		ArchitecturesAllowed: '',
-		WalkthroughFullName: 'Walkthrough',
+		ReadMeName: `${name} - README`,
+		ReadMeFile: 'README.html',
+		WalkthroughFullName: `${name} - Walkthrough`,
 		WalkthroughFullFile: 'Walkthrough\\Mata Nui Walkthrough.pdf',
-		WalkthroughTextName: 'Walkthrough - Text',
+		WalkthroughTextName: `${name} - Walkthrough - Text`,
 		WalkthroughTextFile: 'Walkthrough\\Text Walkthrough.pdf'
 	};
 	await innosetupP('innosetup.iss', {
@@ -460,7 +458,6 @@ async function buildBrowser(dir, nested) {
 		);
 	}
 	await addDocs(dest);
-	await addLicense(dest);
 }
 
 async function buildWindows(dir, pkg) {
@@ -469,7 +466,6 @@ async function buildWindows(dir, pkg) {
 	await bundle(await createBundleWindows(`${dest}/${appName}.exe`), pkg);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
 	await addDocs(dest);
-	await addLicense(dest);
 }
 
 async function buildMac(dir, pkg) {
@@ -478,7 +474,6 @@ async function buildMac(dir, pkg) {
 	await bundle(await createBundleMac(`${dest}/${appName}.app`), pkg);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
 	await addDocs(dest);
-	await addLicense(dest);
 }
 
 async function buildLinux32(dir, pkg) {
@@ -487,7 +482,6 @@ async function buildLinux32(dir, pkg) {
 	await bundle(await createBundleLinux32(`${dest}/${appName}`), pkg);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
 	await addDocs(dest);
-	await addLicense(dest);
 }
 
 async function buildLinux64(dir, pkg) {
@@ -496,7 +490,6 @@ async function buildLinux64(dir, pkg) {
 	await bundle(await createBundleLinux64(`${dest}/${appName}`), pkg);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
 	await addDocs(dest);
-	await addLicense(dest);
 }
 
 async function server(dir) {
@@ -622,12 +615,6 @@ task('dist:mac:dmg', async () => {
 		},
 		contents: [
 			{
-				x: (width / 2) + 160,
-				y: 108,
-				type: 'link',
-				path: '/Applications'
-			},
-			{
 				x: (width / 2) - 160,
 				y: 108,
 				type: 'file',
@@ -635,12 +622,18 @@ task('dist:mac:dmg', async () => {
 			},
 			{
 				x: (width / 2) + 160,
-				y: 364,
-				type: 'file',
-				path: 'build/mac/LICENSE.txt'
+				y: 108,
+				type: 'link',
+				path: '/Applications'
 			},
 			{
 				x: (width / 2) - 160,
+				y: 364,
+				type: 'file',
+				path: 'build/mac/README.html'
+			},
+			{
+				x: (width / 2) + 160,
 				y: 364,
 				type: 'file',
 				path: 'build/mac/Walkthrough'

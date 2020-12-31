@@ -1,4 +1,4 @@
-# Workaround for Flash Player 19.0.0.245+ compatablility
+# Workaround for Flash Player 19.0.0.245+ compatibility
 
 The fix for CVE-2015-7659 breaks SWF4 `StringVariable:length` syntax.
 
