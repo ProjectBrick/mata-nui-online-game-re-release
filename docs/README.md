@@ -1,5 +1,7 @@
 # Mata Nui Online Game: Re-Release -- README
 
+Discover the beginning of the legend. Play this old classic game and relive the adventure of the Toa on Mata Nui.
+
 
 ## Walkthrough
 
