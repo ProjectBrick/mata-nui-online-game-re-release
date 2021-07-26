@@ -28,7 +28,8 @@ const {
 	BundleWindows32,
 	BundleMacApp,
 	BundleLinux32,
-	BundleLinux64
+	BundleLinux64,
+	loader
 } = require('@shockpkg/swf-projector');
 
 const {Propercase} = require('./util/propercase');
@@ -340,11 +341,23 @@ async function makeDmg(target, specification) {
 	});
 }
 
-async function bundle(bundle, pkg) {
-	await bundle.withFile(
+async function bundle(bundle, pkg, delay = false) {
+	await bundle.withData(
 		await shockpkgFile(pkg),
-		'original/lego-re-release/projectors/win/autorun.swf',
+		loader(
+			5,
+			480,
+			360,
+			12,
+			0x000000,
+			'autorun.swf',
+			delay ? 12 / 2 : 0
+		),
 		async b => {
+			await b.copyResourceFile(
+				'autorun.swf',
+				'original/lego-re-release/projectors/win/autorun.swf'
+			);
 			await readSourcesFiltered(async entry => {
 				await b.createResourceFile(entry.path, await entry.read());
 			});
@@ -478,7 +491,7 @@ async function buildMac(dir, pkg) {
 async function buildLinux32(dir, pkg) {
 	const dest = `build/${dir}`;
 	await fse.remove(dest);
-	await bundle(await createBundleLinux32(`${dest}/${appName}`), pkg);
+	await bundle(await createBundleLinux32(`${dest}/${appName}`), pkg, true);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
 	await addDocs(dest);
 }
@@ -486,7 +499,7 @@ async function buildLinux32(dir, pkg) {
 async function buildLinux64(dir, pkg) {
 	const dest = `build/${dir}`;
 	await fse.remove(dest);
-	await bundle(await createBundleLinux64(`${dest}/${appName}`), pkg);
+	await bundle(await createBundleLinux64(`${dest}/${appName}`), pkg, true);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
 	await addDocs(dest);
 }
