@@ -350,17 +350,28 @@ async function bundle(bundle, pkg, delay = false) {
 			360,
 			12,
 			0x000000,
-			'autorun.swf',
+			'matanuionlinegame.swf',
 			delay ? 12 / 2 : 0
 		),
 		async b => {
+			let playerData = null;
+			await readSourcesFiltered(async entry => {
+				const data = await entry.read();
+				if (entry.path === 'player.swf') {
+					playerData = data;
+				}
+				await b.createResourceFile(entry.path, data);
+			});
+			swf.setFps(playerData, 30);
+			await b.createResourceFile('player-30fps.swf', playerData);
 			await b.copyResourceFile(
 				'autorun.swf',
 				'original/lego-re-release/projectors/win/autorun.swf'
 			);
-			await readSourcesFiltered(async entry => {
-				await b.createResourceFile(entry.path, await entry.read());
-			});
+			await b.copyResourceFile(
+				'matanuionlinegame.swf',
+				'src/projector/matanuionlinegame.swf'
+			);
 		}
 	);
 }
@@ -451,18 +462,27 @@ async function buildBrowser(dir, nested) {
 	const dest = `build/${dir}`;
 	const destData = nested ? `${dest}/data` : dest;
 	await fse.remove(dest);
+	let playerData = null;
 	await readSourcesFiltered(async entry => {
-		if (/^Launcher(-full)?\.swf$/.test(entry.path)) {
+		if (/^Launcher(-full)?(-30fps)?\.swf$/.test(entry.path)) {
+			return;
+		}
+		if (/^autorun(-30fps)?\.swf$/.test(entry.path)) {
 			return;
 		}
 		const data = await entry.read();
+		if (entry.path === 'player.swf') {
+			playerData = data;
+		}
 		await fse.outputFile(`${destData}/${entry.path}`, data);
 	});
+	swf.setFps(playerData, 30);
+	await fse.outputFile(`${destData}/player-30fps.swf`, playerData);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
-	await fse.copy(
-		`src/browser/index.html`,
-		`${destData}/index.html`
-	);
+	await Promise.all([
+		'index.html',
+		'matanuionlinegame.swf'
+	].map(f => fse.copy(`src/browser/${f}`, `${destData}/${f}`)));
 	if (nested) {
 		await fse.outputFile(
 			`${dest}/${appName}.html`,
