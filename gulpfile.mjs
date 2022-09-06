@@ -37,6 +37,7 @@ import {
 } from './util/sources.mjs';
 import {Server} from './util/server.mjs';
 import {setFps} from './util/swf.mjs';
+
 const {
 	appName,
 	appNameShort,
