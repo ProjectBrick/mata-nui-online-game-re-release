@@ -38,6 +38,9 @@ import {
 import {Server} from './util/server.mjs';
 import {setFps} from './util/swf.mjs';
 const {
+	appName,
+	appNameShort,
+	appDomain,
 	version,
 	author,
 	copyright
@@ -47,9 +50,6 @@ const pipelineP = util.promisify(stream.pipeline);
 const imageSizeP = util.promisify(imageSize);
 const innosetupP = util.promisify(innosetup);
 
-const appName = 'Mata Nui Online Game - Re-Release';
-const appNameShort = 'Mata Nui Online Game';
-const appDomain = 'io.github.projectbrick.MataNuiOnlineGameReRelease';
 const distName = slugify(`${appName} ${version}`);
 const versionShort = version.split('.').slice(0, 2).join('.');
 const serverPort = +process.env.SERVER_PORT;
