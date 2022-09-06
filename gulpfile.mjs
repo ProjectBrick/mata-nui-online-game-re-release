@@ -1,6 +1,5 @@
 import fse from 'fs-extra';
 import gulp from 'gulp';
-import {marked} from 'marked';
 import {Manager} from '@shockpkg/core';
 import {
 	Plist,
@@ -26,6 +25,7 @@ import {
 	readIco,
 	readIcns
 } from './util/image.mjs';
+import {docs} from './util/doc.mjs';
 import {
 	makeZip,
 	makeTgz,
@@ -158,30 +158,6 @@ async function readSourcesWalkthrough(each) {
 		}
 		await each(entry);
 	});
-}
-
-async function addDocs(dir) {
-	const template = await fse.readFile('docs/template.html', 'utf8');
-	await Promise.all((await fse.readdir('docs'))
-		.filter(f => /^[^\.].*\.md$/i.test(f))
-		.map(f => fse.readFile(`docs/${f}`, 'utf8').then(src => {
-			const body = marked(src, {
-				gfm: true,
-				breaks: true,
-				smartypants: true
-			}).trim();
-			const title = (
-				body.match(/<h\d[^>]*>([\s\S]*?)<\/h\d>/) || []
-			)[1] || '';
-			return fse.writeFile(
-				`${dir}/${f}`.replace(/\.md$/i, '.html'),
-				templateStrings(template, {
-					title,
-					body
-				})
-			);
-		}))
-	);
 }
 
 async function outputWalkthroughs(dir) {
@@ -341,7 +317,7 @@ async function buildBrowser(dir, nested) {
 			'<meta http-equiv="refresh" content="0;url=data/index.html">\n'
 		);
 	}
-	await addDocs(dest);
+	await docs('docs', dest);
 }
 
 async function buildWindows(dir, pkg) {
@@ -349,7 +325,7 @@ async function buildWindows(dir, pkg) {
 	await fse.remove(dest);
 	await bundle(await createBundleWindows(`${dest}/${appName}.exe`), pkg);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
-	await addDocs(dest);
+	await docs('docs', dest);
 }
 
 async function buildMac(dir, pkg) {
@@ -357,7 +333,7 @@ async function buildMac(dir, pkg) {
 	await fse.remove(dest);
 	await bundle(await createBundleMac(`${dest}/${appName}.app`), pkg);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
-	await addDocs(dest);
+	await docs('docs', dest);
 }
 
 async function buildLinux32(dir, pkg) {
@@ -365,7 +341,7 @@ async function buildLinux32(dir, pkg) {
 	await fse.remove(dest);
 	await bundle(await createBundleLinux32(`${dest}/${appName}`), pkg, true);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
-	await addDocs(dest);
+	await docs('docs', dest);
 }
 
 async function buildLinux64(dir, pkg) {
@@ -373,7 +349,7 @@ async function buildLinux64(dir, pkg) {
 	await fse.remove(dest);
 	await bundle(await createBundleLinux64(`${dest}/${appName}`), pkg, true);
 	await outputWalkthroughs(`${dest}/Walkthrough`);
-	await addDocs(dest);
+	await docs('docs', dest);
 }
 
 gulp.task('clean', async () => {
