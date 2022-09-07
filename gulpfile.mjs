@@ -368,9 +368,9 @@ gulp.task('dist:windows:exe', async () => {
 		VarArchitecturesAllowed: '',
 		VarReadMeName: `${appFile} - README`,
 		VarReadMeFile: 'README.html',
-		VarWalkthroughFullName: `${filename(appName)} - Walkthrough`,
+		VarWalkthroughFullName: `${appFile} - Walkthrough`,
 		VarWalkthroughFullFile: 'Walkthrough\\Mata Nui Walkthrough.pdf',
-		VarWalkthroughTextName: `${filename(appName)} - Walkthrough - Text`,
+		VarWalkthroughTextName: `${appFile} - Walkthrough - Text`,
 		VarWalkthroughTextFile: 'Walkthrough\\Text Walkthrough.pdf'
 	});
 	await fse.remove(res);
