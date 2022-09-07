@@ -1,7 +1,7 @@
 {
 	"private": true,
 	"appName": "Mata Nui Online Game - Re-Release",
-	"appNameShort": "Mata Nui Online Game",
+	"appDmgTitle": "Mata Nui Online Game",
 	"appDomain": "io.github.projectbrick.MataNuiOnlineGameReRelease",
 	"version": "1.1.0",
 	"author": "Project Brick",
