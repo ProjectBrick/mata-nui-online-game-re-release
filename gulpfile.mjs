@@ -26,126 +26,65 @@ import {
 	versionShort,
 	distName
 } from './util/meta.mjs';
-import {
-	pngs2bmps,
-	readIco,
-	readIcns
-} from './util/image.mjs';
+import {pngs2bmps, readIco, readIcns} from './util/image.mjs';
 import {docs} from './util/doc.mjs';
-import {
-	makeZip,
-	makeTgz,
-	makeExe,
-	makeDmg
-} from './util/dist.mjs';
+import {makeZip, makeTgz, makeExe, makeDmg} from './util/dist.mjs';
 import {Propercase} from './util/propercase.mjs';
-import {
-	SourceZip,
-	SourceDir
-} from './util/source.mjs';
-import {setFps} from './util/fps.mjs';
+import {SourceZip, SourceDir} from './util/source.mjs';
+import {flash4FpsCap, setFps} from './util/fps.mjs';
 
-// This was a Flash 4 game, and the maximum FPS in Flash Player 4 was 18.
-// The FPS set in the SWF files is greater, leading to faster playback.
-// http://www.macromedia.com/support/flash/releasenotes/player/releasenotes_player_5.htm
-const correctFps = 18;
-
-const sources = {
-	'mod': () => new SourceDir(
-		'mod'
-	),
-	'lego-re-release': () => new SourceZip(
-		'original/lego-re-release/MataNui.zip',
-		'matanui/'
-	),
-	'lego-re-release-walkthrough-full': () => new SourceZip(
-		'original/lego-re-release/MataNuiWalkthrough.zip',
-		''
-	),
-	'lego-re-release-walkthrough-text': () => new SourceZip(
-		'original/lego-re-release/TextWalkthrough.zip',
-		''
-	)
-};
-
-async function readSources(order, each) {
+async function * readSources(sources) {
 	const propercase = new Propercase('propercase.txt');
 	propercase.cacheDir = '.cache/propercase';
 	await propercase.init();
-
-	const ordered = order.map(id => ({
-		id,
-		source: sources[id]()
-	}));
-	for (const {source} of ordered) {
-		await source.open();
-	}
-
-	const mapped = new Map();
-	for (const {id, source} of ordered) {
-		await source.each(async entry => {
-			const p = entry.path.toLowerCase();
-			if (p.endsWith('/') || mapped.has(p)) {
-				return;
-			}
-			mapped.set(p, {
-				source: id,
-				path: propercase.name(entry.path),
-				read: async () => {
-					let data = await entry.read();
-					if (/\.(swf|txt)$/i.test(p)) {
-						data = await propercase.dataCached(data);
-					}
-					if (/\.swf$/i.test(p)) {
-						setFps(data, correctFps);
-					}
-					return data;
+	await Promise.all(sources.map(s => s.open()));
+	const m = new Map();
+	for (const source of sources) {
+		for (const [path, read] of source.itter()) {
+			m.set(path.toLowerCase(), [propercase.name(path), async () => {
+				let data = await read();
+				if (/\.(swf|txt)$/i.test(p)) {
+					data = await propercase.dataCached(data);
 				}
-			});
-		});
+				if (/\.swf$/i.test(p)) {
+					setFps(data, flash4FpsCap);
+				}
+				return data;
+			}]);
+		}
 	}
-	for (const id of [...mapped.keys()].sort()) {
-		await each(mapped.get(id));
+	for (const id of [...m.keys()].sort()) {
+		yield m.get(id);
 	}
+	await Promise.all(sources.map(s => s.close()));
+}
 
-	for (const {source} of ordered) {
-		await source.close();
+async function * readSourcesFiltered() {
+	for await (const [file, read] of readSources([
+		new SourceDir('mod'),
+		new SourceZip('original/lego-re-release/MataNui.zip', 'matanui/')
+	])) {
+		if (/^[^.][^\\/]+\.(swf|txt|bin|zip)$/i.test(file)) {
+			yield [file, read];
+		}
 	}
 }
 
-async function readSourcesFiltered(each) {
-	const sources = [
-		'mod',
-		'lego-re-release'
-	];
-	await readSources(sources, async entry => {
-		if (!/^[^.][^\\/]+\.(swf|txt|bin|zip)$/i.test(entry.path)) {
-			return;
+async function * readSourcesWalkthrough() {
+	for await (const [file, read] of readSources([
+		new SourceZip('original/lego-re-release/MataNuiWalkthrough.zip', ''),
+		new SourceZip('original/lego-re-release/TextWalkthrough.zip', '')
+	])) {
+		if (/^[^.][^\\/]+\.(pdf)$/i.test(file)) {
+			yield [file, read];
 		}
-		await each(entry);
-	});
-}
-
-async function readSourcesWalkthrough(each) {
-	const sources = [
-		'lego-re-release-walkthrough-full',
-		'lego-re-release-walkthrough-text'
-	];
-	await readSources(sources, async entry => {
-		if (!/^[^.][^\\/]+\.(pdf)$/i.test(entry.path)) {
-			return;
-		}
-		await each(entry);
-	});
+	}
 }
 
 async function outputWalkthroughs(dir) {
-	await readSourcesWalkthrough(async entry => {
-		await fse.outputFile(
-			`${dir}/${entry.path}`,
-			await entry.read()
-		);
-	});
+	for await (const [file, read] of readSourcesWalkthrough()) {
+		await fse.outputFile(`${dir}/${file}`, await read());
+	}
 }
 
 async function bundle(bundle, pkg, delay = false) {
@@ -159,13 +98,13 @@ async function bundle(bundle, pkg, delay = false) {
 		loader(swfv, w, h, fps, bg, url, delay ? Math.round(fps / 2) : 0),
 		async b => {
 			let playerData = null;
-			await readSourcesFiltered(async entry => {
-				const data = await entry.read();
-				if (entry.path === 'player.swf') {
+			for await (const [file, read] of readSourcesFiltered()) {
+				const data = await read();
+				if (file === 'player.swf') {
 					playerData = data;
 				}
-				await b.createResourceFile(entry.path, data);
-			});
+				await b.createResourceFile(file, data);
+			}
 			setFps(playerData, 30);
 			await b.createResourceFile('player-30fps.swf', playerData);
 			await b.copyResourceFile(
@@ -182,19 +121,16 @@ async function bundle(bundle, pkg, delay = false) {
 
 async function browser(dest) {
 	let playerData = null;
-	await readSourcesFiltered(async entry => {
-		if (/^Launcher(-full)?(-30fps)?\.swf$/.test(entry.path)) {
-			return;
+	for await (const [file, read] of readSourcesFiltered()) {
+		if (/^(Launcher(-full)?|autorun)(-30fps)?\.swf$/.test(file)) {
+			continue;
 		}
-		if (/^autorun(-30fps)?\.swf$/.test(entry.path)) {
-			return;
-		}
-		const data = await entry.read();
-		if (entry.path === 'player.swf') {
+		const data = await read();
+		if (file === 'player.swf') {
 			playerData = data;
 		}
-		await fse.outputFile(`${dest}/${entry.path}`, data);
-	});
+		await fse.outputFile(`${dest}/${file}`, data);
+	}
 	setFps(playerData, 30);
 	await fse.outputFile(`${dest}/player-30fps.swf`, playerData);
 	await Promise.all([
