@@ -34,17 +34,15 @@ import {SourceZip, SourceDir} from './util/source.mjs';
 import {flash4FpsCap, setFps} from './util/fps.mjs';
 
 async function * readSources(sources) {
-	const propercase = new Propercase('propercase.txt');
-	propercase.cacheDir = '.cache/propercase';
-	await propercase.init();
+	const pc = await Propercase.init('propercase.txt', '.cache/propercase');
 	await Promise.all(sources.map(s => s.open()));
 	const m = new Map();
 	for (const source of sources) {
 		for (const [path, read] of source.itter()) {
-			m.set(path.toLowerCase(), [propercase.name(path), async () => {
+			m.set(path.toLowerCase(), [pc.name(path), async () => {
 				let data = await read();
 				if (/\.(swf|txt)$/i.test(path)) {
-					data = await propercase.dataCached(data);
+					data = await pc.dataCached(data);
 				}
 				if (/\.swf$/i.test(path)) {
 					setFps(data, flash4FpsCap);
