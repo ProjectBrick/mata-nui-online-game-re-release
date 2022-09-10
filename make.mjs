@@ -24,7 +24,6 @@ import {
 	versionShort,
 	distName
 } from './util/meta.mjs';
-import {readIco, readIcns} from './util/image.mjs';
 import {docs} from './util/doc.mjs';
 import {makeZip, makeTgz, makeExe, makeDmg} from './util/dist.mjs';
 import {copyFile, outputFile, remove} from './util/fs.mjs';
@@ -155,7 +154,7 @@ task['build:windows'] = async () => {
 		InternalName: appFile,
 		Comments: ''
 	};
-	b.projector.iconData = await readIco('res/app-icon-windows');
+	b.projector.iconFile = 'res/app-icon-windows.ico';
 	b.projector.patchWindowTitle = appName;
 	b.projector.removeCodeSignature = true;
 	await bundle(b, 'flash-player-32.0.0.465-windows-sa-debug');
@@ -197,7 +196,7 @@ task['build:mac'] = async () => {
 		['NSMainNibFile', new ValueString('MainMenu')],
 		['NSPrincipalClass', new ValueString('NSApplication')]
 	])))).toXml();
-	b.projector.iconData = await readIcns('res/app-icon-mac.iconset');
+	b.projector.iconFile = 'res/app-icon-mac.icns';
 	b.projector.patchWindowTitle = appName;
 	b.projector.removeInfoPlistStrings = true;
 	b.projector.removeCodeSignature = true;
@@ -246,10 +245,6 @@ task['dist:windows:exe'] = async () => {
 	const outFile = `${distName}-Windows`;
 	const target = `${outDir}/${outFile}.exe`;
 	await remove(target);
-	const res = `${target}.res`;
-	const resIcon = `${res}/icon.ico`;
-	await remove(res);
-	await readIco('res/inno-icon').then(d => outputFile(resIcon, d));
 	await makeExe('innosetup.iss', {
 		VarId: appDomain,
 		VarName: appName,
@@ -258,7 +253,7 @@ task['dist:windows:exe'] = async () => {
 		VarPublisher: author,
 		VarCopyright: copyright,
 		VarLicense: 'LICENSE.txt',
-		VarIcon: resIcon,
+		VarIcon: 'res/inno-icon.ico',
 		VarWizardImageHeader: 'res/inno-header/*.bmp',
 		VarWizardImageSidebar: 'res/inno-sidebar/*.bmp',
 		VarWizardImageAlphaFormat: 'none',
@@ -275,7 +270,6 @@ task['dist:windows:exe'] = async () => {
 		VarWalkthroughTextName: `${appFile} - Walkthrough - Text`,
 		VarWalkthroughTextFile: 'Walkthrough\\Text Walkthrough.pdf'
 	});
-	await remove(res);
 };
 
 task['dist:mac:tgz'] = async () => {
@@ -288,14 +282,11 @@ task['dist:mac:dmg'] = async () => {
 		width: 640,
 		height: 512
 	};
-	const output = `dist/${distName}-Mac.dmg`;
-	const icon = `${output}.icns`;
-	await outputFile(icon, await readIcns('res/dmg-icon.iconset'));
-	await makeDmg(output, {
+	await makeDmg(`dist/${distName}-Mac.dmg`, {
 		format: 'UDBZ',
 		title: appDmgTitle,
 		'icon-size': 128,
-		icon,
+		icon: 'res/dmg-icon.icns',
 		background,
 		window: {
 			size
@@ -327,7 +318,6 @@ task['dist:mac:dmg'] = async () => {
 			}
 		]
 	});
-	await remove(icon);
 };
 
 task['dist:linux-i386:tgz'] = async () => {
