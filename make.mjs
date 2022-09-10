@@ -276,45 +276,20 @@ task['dist:mac:tgz'] = async () => {
 };
 
 task['dist:mac:dmg'] = async () => {
-	await makeDmg(`dist/${distName}-Mac.dmg`, {
-		format: 'UDBZ',
-		title: appDmgTitle,
-		'icon-size': 128,
-		icon: 'res/dmg-icon.icns',
-		background: 'res/dmg-background/dmg-background.png',
-		window: {
-			size: {
-				width: 640,
-				height: 512
-			}
-		},
-		contents: [
-			{
-				x: 160,
-				y: 108,
-				type: 'file',
-				path: `build/mac/${appFile}.app`
-			},
-			{
-				x: 480,
-				y: 108,
-				type: 'link',
-				path: '/Applications'
-			},
-			{
-				x: 160,
-				y: 364,
-				type: 'file',
-				path: 'build/mac/README.html'
-			},
-			{
-				x: 480,
-				y: 364,
-				type: 'file',
-				path: 'build/mac/Walkthrough'
-			}
+	await makeDmg(
+		`dist/${distName}-Mac.dmg`,
+		appDmgTitle,
+		'res/dmg-icon.icns',
+		'res/dmg-background/dmg-background.png',
+		[640, 512],
+		128,
+		[
+			[160, 108, 'file', `build/mac/${appFile}.app`],
+			[480, 108, 'link', '/Applications'],
+			[160, 364, 'file', 'build/mac/README.html'],
+			[480, 364, 'file', 'build/mac/Walkthrough']
 		]
-	});
+	);
 };
 
 task['dist:linux-i386:tgz'] = async () => {
