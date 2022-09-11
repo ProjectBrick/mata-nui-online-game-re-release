@@ -241,34 +241,32 @@ task['dist:windows:zip'] = async () => {
 };
 
 task['dist:windows:exe'] = async () => {
-	const outDir = 'dist';
-	const outFile = `${distName}-Windows`;
-	await remove(`${outDir}/${outFile}.exe`);
-	await makeExe('innosetup.iss', {
-		VarId: appDomain,
-		VarName: appName,
-		VarNameFile: appFile,
-		VarVersion: version,
-		VarPublisher: author,
-		VarCopyright: copyright,
-		VarLicense: 'LICENSE.txt',
-		VarIcon: 'res/inno-icon.ico',
-		VarWizardImageHeader: 'res/inno-header/*.bmp',
-		VarWizardImageSidebar: 'res/inno-sidebar/*.bmp',
-		VarWizardImageAlphaFormat: 'none',
-		VarExeName: `${appFile}.exe`,
-		VarOutDir: outDir,
-		VarOutFile: outFile,
-		VarSource: 'build/windows/*',
-		VarArchitecturesInstallIn64BitMode: '',
-		VarArchitecturesAllowed: '',
-		VarReadMeName: `${appFile} - README`,
-		VarReadMeFile: 'README.html',
-		VarWalkthroughFullName: `${appFile} - Walkthrough`,
-		VarWalkthroughFullFile: 'Walkthrough\\Mata Nui Walkthrough.pdf',
-		VarWalkthroughTextName: `${appFile} - Walkthrough - Text`,
-		VarWalkthroughTextFile: 'Walkthrough\\Text Walkthrough.pdf'
-	});
+	await makeExe(
+		`dist/${distName}-Windows.exe`,
+		appDomain,
+		appName,
+		appFile,
+		version,
+		author,
+		copyright,
+		'LICENSE.txt',
+		'res/inno-icon.ico',
+		'res/inno-header/*.bmp',
+		'res/inno-sidebar/*.bmp',
+		'build/windows/*',
+		[
+			[`${appFile}.exe`, appFile, true, true],
+			['README.html', `${appFile} - README`],
+			[
+				'Walkthrough\\Mata Nui Walkthrough.pdf',
+				`${appFile} - Walkthrough`
+			],
+			[
+				'Walkthrough\\Text Walkthrough.pdf',
+				`${appFile} - Walkthrough - Text`
+			]
+		]
+	);
 };
 
 task['dist:mac:tgz'] = async () => {
