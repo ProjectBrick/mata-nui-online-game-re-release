@@ -121,7 +121,7 @@ task['build:pages'] = async () => {
 	const build = 'build/pages';
 	await remove(build);
 	await browser(build);
-	await walkthroughs(`${dest}/Walkthrough`);
+	await walkthroughs(`${build}/Walkthrough`);
 	await docs('docs', build);
 };
 
@@ -133,7 +133,7 @@ task['build:browser'] = async () => {
 		`${build}/${appFile}.html`,
 		'<meta http-equiv="refresh" content="0;url=data/index.html">\n'
 	);
-	await walkthroughs(`${dest}/Walkthrough`);
+	await walkthroughs(`${build}/Walkthrough`);
 	await docs('docs', build);
 };
 
