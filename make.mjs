@@ -282,10 +282,10 @@ task['dist:mac:dmg'] = async () => {
 		[640, 512],
 		128,
 		[
-			[160, 108, 'file', `build/mac/${appFile}.app`],
-			[480, 108, 'link', '/Applications'],
-			[160, 364, 'file', 'build/mac/README.html'],
-			[480, 364, 'file', 'build/mac/Walkthrough']
+			[-160, -148, 'file', `build/mac/${appFile}.app`],
+			[160, -148, 'link', '/Applications'],
+			[-160, 100, 'file', 'build/mac/README.html'],
+			[160, 100, 'file', 'build/mac/Walkthrough']
 		]
 	);
 };
