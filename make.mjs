@@ -111,7 +111,7 @@ async function browser(dest) {
 	].map(f => copyFile(`src/browser/${f}`, `${dest}/${f}`)));
 }
 
-const task = {};
+const task = {'': _ => Object.keys(task).map(t => t && console.error(t)) && 1};
 
 task['clean'] = async () => {
 	await remove('.cache', 'build', 'dist');
@@ -298,4 +298,4 @@ task['dist:linux-x86_64:tgz'] = async () => {
 	await makeTgz(`dist/${distName}-Linux-x86_64.tgz`, 'build/linux-x86_64');
 };
 
-await task[process.argv[2]]();
+process.exitCode = await task[process.argv[2] || '']();
