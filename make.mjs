@@ -1,3 +1,5 @@
+import {mkdir, readFile, rm, writeFile} from 'node:fs/promises';
+
 import {Manager} from '@shockpkg/core';
 import {
 	Plist,
@@ -6,6 +8,7 @@ import {
 	ValueBoolean
 } from '@shockpkg/plist-dom';
 import {
+	BundleHtml,
 	BundleSaWindows,
 	BundleSaMac,
 	BundleSaLinux,
@@ -26,42 +29,59 @@ import {
 import {docs} from './util/doc.mjs';
 import {isMac, codesign} from './util/mac.mjs';
 import {makeZip, makeTgz, makeExe, makeDmg} from './util/dist.mjs';
-import {copyFile, outputFile, remove} from './util/fs.mjs';
 import {Propercase} from './util/propercase.mjs';
 import {SourceZip, SourceDir, readSources} from './util/source.mjs';
 import {flash4FpsCap, setFps} from './util/fps.mjs';
 
-async function * resources() {
+async function * resources(browser = false) {
 	const pc = await Propercase.init('propercase.txt', '.cache/propercase');
-	for await (const [file, read] of readSources([
+	for await (const [f, read] of readSources([
 		new SourceDir('mod'),
 		new SourceZip('original/lego-re-release/MataNui.zip', 'matanui/')
 	])) {
-		if (/^[^.][^\\/]+\.(swf|txt|bin|zip)$/i.test(file)) {
+		if (browser && /^(Launcher(-full)?|autorun)(-30fps)?\.swf$/i.test(f)) {
+			continue;
+		}
+		if (/^[^.][^\\/]+\.(swf|txt|bin|zip)$/i.test(f)) {
+			const n = pc.name(f);
 			let data = await read();
-			if (/\.(swf|txt)$/i.test(file)) {
+			if (/\.(swf|txt)$/i.test(f)) {
 				data = await pc.dataCached(data);
 			}
-			if (/\.swf$/i.test(file)) {
+			if (/\.swf$/i.test(f)) {
+				if (n === 'player.swf') {
+					yield ['player-30fps.swf', data];
+				}
 				setFps(data, flash4FpsCap);
 			}
-			yield [pc.name(file), data];
+			yield [n, data];
 		}
+	}
+	if (!browser) {
+		const src = 'original/lego-re-release/projectors/win';
+		for (const f of ['autorun.swf']) {
+			yield [f, await readFile(`${src}/${f}`)];
+		}
+	}
+	const src = browser ? 'src/browser' : 'src/projector';
+	for (const f of ['matanuionlinegame.swf']) {
+		yield [f, await readFile(`${src}/${f}`)];
 	}
 }
 
 async function walkthroughs(dir) {
+	await mkdir(dir, {recursive: true});
 	for await (const [file, read] of readSources([
 		new SourceZip('original/lego-re-release/MataNuiWalkthrough.zip', ''),
 		new SourceZip('original/lego-re-release/TextWalkthrough.zip', '')
 	])) {
 		if (/^[^.][^\\/]+\.(pdf)$/i.test(file)) {
-			await outputFile(`${dir}/${file}`, await read());
+			await writeFile(`${dir}/${file}`, await read());
 		}
 	}
 }
 
-function movie(delay) {
+function projected(delay) {
 	const swfv = 6;
 	const [w, h] = [480, 360];
 	const fps = 12;
@@ -70,78 +90,50 @@ function movie(delay) {
 	return loader(swfv, w, h, fps, bg, url, delay ? Math.round(fps / 2) : 0);
 }
 
-async function bundler(b) {
-	let playerData = null;
-	for await (const [file, data] of resources()) {
-		if (file === 'player.swf') {
-			playerData = data;
-		}
-		await b.createResourceFile(file, data);
-	}
-	setFps(playerData, 30);
-	await b.createResourceFile('player-30fps.swf', playerData);
-	await b.copyResourceFile(
-		'autorun.swf',
-		'original/lego-re-release/projectors/win/autorun.swf'
-	);
-	await b.copyResourceFile(
-		'matanuionlinegame.swf',
-		'src/projector/matanuionlinegame.swf'
-	);
-}
-
-async function browser(dest) {
-	let playerData = null;
-	for await (const [file, data] of resources()) {
-		if (/^(Launcher(-full)?|autorun)(-30fps)?\.swf$/.test(file)) {
-			continue;
-		}
-		if (file === 'player.swf') {
-			playerData = data;
-		}
-		await outputFile(`${dest}/${file}`, data);
-	}
-	setFps(playerData, 30);
-	await outputFile(`${dest}/player-30fps.swf`, playerData);
-	await Promise.all([
-		'index.html',
-		'matanuionlinegame.swf'
-	].map(f => copyFile(`src/browser/${f}`, `${dest}/${f}`)));
-}
-
 const task = {'': _ => Object.keys(task).map(t => t && console.error(t)) && 1};
 
 task['clean'] = async () => {
-	await remove('.cache', 'build', 'dist');
+	await rm('dist', {force: true, recursive: true});
+	await rm('build', {force: true, recursive: true});
+	await rm('.cache', {force: true, recursive: true});
 };
 
-task['build:pages'] = async () => {
-	const build = 'build/pages';
-	await remove(build);
-	await browser(build);
-	await walkthroughs(`${build}/Walkthrough`);
-	await docs('docs', build);
-};
+for (const [type, flat] of Object.entries({
+	'pages': true,
+	'browser': false
+})) {
+	const build = `build/${type}`;
+	task[`build:${type}`] = async () => {
+		await rm(build, {force: true, recursive: true});
+		const file = flat ? 'index.html' : `${appFile}.html`;
+		const b = new BundleHtml(`${build}/${file}`, flat);
+		b.projector.lang = 'en-US';
+		b.projector.title = appName;
+		b.projector.background = '#000000';
+		b.projector.color = '#999999';
+		b.projector.src = 'matanuionlinegame.swf';
+		b.projector.width = 770;
+		b.projector.height = 443;
+		b.projector.quality = 'high';
+		b.projector.bgcolor = '#000000';
+		await b.write(async b => {
+			for await (const [file, data] of resources(true)) {
+				await b.createResourceFile(file, data);
+			}
+		});
+		await walkthroughs(`${build}/Walkthrough`);
+		await docs('docs', build);
+	};
+}
 
-task['build:browser'] = async () => {
-	const build = 'build/browser';
-	await remove(build);
-	await browser(`${build}/data`);
-	await outputFile(
-		`${build}/${appFile}.html`,
-		'<meta http-equiv="refresh" content="0;url=data/index.html">\n'
-	);
-	await walkthroughs(`${build}/Walkthrough`);
-	await docs('docs', build);
-};
-
-task['dist:browser:zip'] = async () => {
-	await makeZip(`dist/${distName}-Browser.zip`, 'build/browser');
-};
-
-task['dist:browser:tgz'] = async () => {
-	await makeTgz(`dist/${distName}-Browser.tgz`, 'build/browser');
-};
+for (const [type, make] of Object.entries({
+	'zip': makeZip,
+	'tgz': makeTgz
+})) {
+	task[`dist:browser:${type}`] = async () => {
+		await make(`dist/${distName}-Browser.${type}`, 'build/browser');
+	};
+}
 
 for (const [type, pkg] of Object.entries({
 	'i386': 'flash-player-35.0.0.204-windows-i386-sa-2022-08-13',
@@ -150,11 +142,11 @@ for (const [type, pkg] of Object.entries({
 })) {
 	const build = `build/windows-${type}`;
 	task[`build:windows-${type}`] = async () => {
-		await remove(build);
+		await rm(build, {force: true, recursive: true});
 		const file = `${appFile}.exe`;
 		const b = new BundleSaWindows(`${build}/${file}`);
 		b.projector.player = await new Manager().file(pkg);
-		b.projector.movieData = movie(false);
+		b.projector.movieData = projected(false);
 		b.projector.versionStrings = {
 			FileVersion: version,
 			ProductVersion: versionShort,
@@ -171,7 +163,11 @@ for (const [type, pkg] of Object.entries({
 		b.projector.patchWindowTitle = appName;
 		b.projector.patchOutOfDateDisable = true;
 		b.projector.removeCodeSignature = true;
-		await b.write(bundler);
+		await b.write(async b => {
+			for await (const [file, data] of resources()) {
+				await b.createResourceFile(file, data);
+			}
+		});
 		await walkthroughs(`${build}/Walkthrough`);
 		await docs('docs', build);
 	};
@@ -215,11 +211,11 @@ for (const [type, pkg] of Object.entries({
 })) {
 	const build = `build/mac-${type}`;
 	task[`build:mac-${type}`] = async () => {
-		await remove(build);
+		await rm(build, {force: true, recursive: true});
 		const pkgInfo = 'APPL????';
 		const b = new BundleSaMac(`${build}/${appFile}.app`);
 		b.projector.player = await new Manager().file(pkg);
-		b.projector.movieData = movie(false);
+		b.projector.movieData = projected(false);
 		b.projector.binaryName = appFile;
 		b.projector.pkgInfoData = pkgInfo;
 		b.projector.infoPlistData = (new Plist(new ValueDict(new Map([
@@ -251,7 +247,11 @@ for (const [type, pkg] of Object.entries({
 		b.projector.patchWindowTitle = appName;
 		b.projector.removeInfoPlistStrings = true;
 		b.projector.removeCodeSignature = true;
-		await b.write(bundler);
+		await b.write(async b => {
+			for await (const [file, data] of resources()) {
+				await b.createResourceFile(file, data);
+			}
+		});
 		await walkthroughs(`${build}/Walkthrough`);
 		if (isMac) {
 			await codesign(b.projector.path);
@@ -288,14 +288,18 @@ for (const [type, pkg] of Object.entries({
 })) {
 	const build = `build/linux-${type}`;
 	task[`build:linux-${type}`] = async () => {
-		await remove(build);
+		await rm(build, {force: true, recursive: true});
 		const b = new BundleSaLinux(`${build}/${appFile}`);
 		b.projector.player = await new Manager().file(pkg);
-		b.projector.movieData = movie(true);
+		b.projector.movieData = projected(true);
 		b.projector.patchProjectorOffset = /x86_64/.test(type);
 		b.projector.patchProjectorPath = true;
 		b.projector.patchWindowTitle = appName;
-		await b.write(bundler);
+		await b.write(async b => {
+			for await (const [file, data] of resources()) {
+				await b.createResourceFile(file, data);
+			}
+		});
 		await walkthroughs(`${build}/Walkthrough`);
 		await docs('docs', build);
 	};
